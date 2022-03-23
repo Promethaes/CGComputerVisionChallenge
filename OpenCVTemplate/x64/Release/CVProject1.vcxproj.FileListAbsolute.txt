@@ -1,1 +1,2 @@
 D:\Projects\Repos\CGComputerVisionChallenge\OpenCVTemplate\x64\Release\CVProject1.exe
+D:\My Computer\Documents\GitHub\CGComputerVisionChallenge\OpenCVTemplate\x64\Release\CVProject1.exe
