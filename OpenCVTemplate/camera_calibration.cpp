@@ -247,6 +247,8 @@ enum { DETECTION = 0, CAPTURING = 1, CALIBRATED = 2 };
 bool runCalibrationAndSave(Settings& s, Size imageSize, Mat& cameraMatrix, Mat& distCoeffs,
     vector<vector<Point2f> > imagePoints, float grid_width, bool release_object);
 
+vector<Point3f> global_newPoints{};
+
 int main(int argc, char* argv[])
 {
     const String keys
@@ -309,10 +311,11 @@ int main(int argc, char* argv[])
     clock_t prevTimestamp = 0;
     const Scalar RED(0, 0, 255), GREEN(0, 255, 0);
     const char ESC_KEY = 27;
-
+    float calibrationTimer = 0.0f;
     //! [get_input]
     for (;;)
     {
+        calibrationTimer += 0.05f;
         Mat view;
         bool blinkOutput = false;
 
@@ -410,8 +413,8 @@ int main(int argc, char* argv[])
 
         putText(view, msg, textOrigin, 1, 1, mode == CALIBRATED ? GREEN : RED);
 
-        if (blinkOutput)
-            bitwise_not(view, view);
+        //if (blinkOutput)
+        //    bitwise_not(view, view);
         //! [output_text]
         //------------------------- Video capture  output  undistorted ------------------------------
         //! [output_undistorted]
@@ -431,6 +434,20 @@ int main(int argc, char* argv[])
         //! [output_undistorted]
         //------------------------------ Show image and check for input commands -------------------
         //! [await_input]
+        int bias = 50;
+        //x axis lines
+        line(view, Point(0, bias), Point(imageSize.width, bias), Scalar(255, 0, 255), 2);
+        line(view, Point(0, imageSize.height - bias), Point(imageSize.width, imageSize.height - bias), Scalar(255, 0, 255), 2);
+
+        //y axis lines
+        line(view, Point(bias, 0), Point(bias, imageSize.height), Scalar(255, 0, 255), 2);
+        line(view, Point(imageSize.width - bias, 0), Point(imageSize.width - bias, imageSize.height), Scalar(255, 0, 255), 2);
+
+        //draw old image points
+        for (int i = 0; i < pointBuf.size(); i++) {
+                circle(view, pointBuf[i], 4, Scalar(255, 255, 255));
+        }
+        
         imshow("Image View", view);
         char key = (char)waitKey(s.inputCapture.isOpened() ? 50 : s.delay);
 
@@ -440,18 +457,20 @@ int main(int argc, char* argv[])
         if (key == 'u' && mode == CALIBRATED)
             s.showUndistorted = !s.showUndistorted;
 
-        if (s.inputCapture.isOpened() && key == 'g')
+        if (s.inputCapture.isOpened() && calibrationTimer >= 1.0f && calibrationTimer <= 1.1f)
         {
             mode = CAPTURING;
             imagePoints.clear();
         }
+        if(key == 'g' && mode == CALIBRATED)
+            calibrationTimer = 1.0f;
         //! [await_input]
     }
 
     // -----------------------Show the undistorted image for the image list ------------------------
     //! [show_results]
-    if (s.inputType == Settings::IMAGE_LIST 
-        && s.showUndistorted 
+    if (s.inputType == Settings::IMAGE_LIST
+        && s.showUndistorted
         && !cameraMatrix.empty())
     {
         Mat view, rview, map1, map2;
@@ -745,6 +764,7 @@ bool runCalibrationAndSave(Settings& s, Size imageSize, Mat& cameraMatrix, Mat& 
 
     bool ok = runCalibration(s, imageSize, cameraMatrix, distCoeffs, imagePoints, rvecs, tvecs, reprojErrs,
         totalAvgErr, newObjPoints, grid_width, release_object);
+    global_newPoints = newObjPoints;
     cout << (ok ? "Calibration succeeded" : "Calibration failed")
         << ". avg re projection error = " << totalAvgErr << endl;
 
